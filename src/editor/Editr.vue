@@ -1,19 +1,16 @@
 <template lang="pug">
 .editr(@click="editorClick")
-    .editr--toolbar
-        Btn(
-            v-for="(module,i) in modules",
-            :module="module",
-            :options="mergedOptions",
-            :key="module.title + i",
+	.editr--toolbar
+		Btn(
+			v-for="(module,i) in modules",
+			:module="module",
+			:options="mergedOptions",
+			:key="module.title + i",
+			:ref="'btn-'+module.title",
+			:title="module.description || ''"
+		)
 
-            :ref="'btn-'+module.title",
-            :title="module.description || ''"
-        )
-
-    .editr--content(ref="content", contenteditable="true", tabindex="1", :placeholder="placeholder")
-
-
+	.editr--content(ref="content", contenteditable="true", tabindex="1", :placeholder="placeholder")
 </template>
 
 <script>
@@ -46,212 +43,215 @@ import removeFormat from "./modules/removeFormat.js";
 import separator from "./modules/separator.js";
 
 const modules = [
-    bold, italic, underline, colorPicker, fontSize, separator,
-    alignLeft, alignCenter, alignRight, separator,
-    headings, hyperlink, code,
-    list_ordered, list_unordered, separator,
-    image, table, separator,
-    removeFormat
+  bold, italic, underline, separator, colorPicker, fontSize, separator,
+  alignLeft, alignCenter, alignRight, separator,
+  headings, hyperlink, list_unordered, separator,
+  removeFormat
 ];
 
 export default {
-    model: {
-        prop: "html",
-        event: "html"
+  model: {
+    prop: "html",
+    event: "html"
+  },
+
+  props: {
+    html: {
+      type: String,
+      default: ""
     },
-
-    props: {
-        html: {
-            type: String,
-            default: ""
-        },
-        placeholder: {
-            type: String,
-            default: "Enter text..."
-        },
-        options: Object
+    placeholder: {
+      type: String,
+      default: "Enter text..."
     },
+    options: Object
+  },
 
+  components: {
+    Btn
+  },
 
-    components: { Btn  },
-
-    data () {
-        return {
-            selection: "",
-            range: null
-        }
-    },
-
-    computed: {
-        mergedOptions () {
-          return { ...bus.options, ...this.options}
-        },
-
-        modules () {
-            const customIcons = this.mergedOptions.iconOverrides;
-
-            return modules
-            .filter(
-                m => this.mergedOptions.hideModules === undefined
-                || !this.mergedOptions.hideModules[m.title]
-            )
-            .map(mod => {
-              if (customIcons !== undefined && customIcons[mod.title] !== undefined) {
-                mod.icon = customIcons[mod.title];
-              }
-              return mod;
-            })
-            .concat(this.mergedOptions.customModules);
-        },
-
-        btnsWithDashboards  () {
-            if (this.modules)
-                return this.modules.filter(m => m.render);
-            return [];
-        },
-
-        innerHTML: {
-            get () {
-                return this.$refs.content.innerHTML;
-            },
-
-            set (html) {
-                if (this.$refs.content.innerHTML !== html) {
-                    this.$refs.content.innerHTML = html;
-                }
-            }
-        }
-    },
-
-    methods: {
-        saveSelection() {
-            if (window.getSelection !== undefined) {
-                this.selection = window.getSelection();
-                if (this.selection.getRangeAt && this.selection.rangeCount) {
-                    this.range =  this.selection.getRangeAt(0);
-                    return this.range;
-                }
-            } else if (document.selection && document.selection.createRange) {
-                this.range = document.selection.createRange();
-                return this.range;
-            }
-            return null;
-        },
-
-        restoreSelection(range) {
-            if (range) {
-                if (window.getSelection !== undefined) {
-                    this.selection = window.getSelection();
-                    this.selection.removeAllRanges();
-                    this.selection.addRange(range);
-                }
-                else if (document.selection && range.select)
-                    range.select();
-            }
-            else{
-
-            }
-            this.selection = null;
-            this.range = null;
-        },
-        clearSelection() {
-          this.selection = null;
-          this.range = null;
-          const selection = window.getSelection();
-
-          if (selection) {
-            if (selection.empty !== undefined) {
-              selection.empty();
-            }
-            if (selection.removeAllRanges !== undefined) {
-              selection.removeAllRanges();
-            }
-          }
-        },
-        exec (cmd, arg, sel){
-            sel !== false && this.selection && this.restoreSelection(this.range);
-            document.execCommand(cmd, false, arg||"");
-            //this.clearSelection();
-
-            this.$nextTick(this.emit);
-        },
-
-        onDocumentClick (e) {
-
-            for (let i = 0; i < this.btnsWithDashboards.length; i++) {
-                const btn = this.$refs[`btn-${this.btnsWithDashboards[i].title}`][0];
-                if (btn && btn.showDashboard && !btn.$el.contains(e.target))
-                    btn.closeDashboard();
-            }
-        },
-
-        editorClick($event){
-            if($event.target.localName == 'input'){
-
-				return;
-			}
-            if(this.range){this.restoreSelection(this.range)}
-        },
-
-        emit () {
-          this.$emit("html", this.$refs.content.innerHTML);
-          this.$emit("change", this.$refs.content.innerHTML);
-        },
-
-        onInput: debounce(function() {
-          this.emit();
-        }, 300),
-
-        onFocus () {
-          document.execCommand("defaultParagraphSeparator", false, this.mergedOptions.paragraphSeparator)
-        },
-
-        onContentBlur () {
-          // save focus to restore it later
-          this.selection = this.saveSelection();
-          this.$emit("blur", this.$refs.content);
-        },
-
-        onPaste(e) {
-            e.preventDefault();
-
-             // get a plain representation of the clipboard
-            var text = e.clipboardData.getData("text/plain");
-
-            // insert that plain text text manually
-            document.execCommand("insertHTML", false, text);
-        },
-
-        syncHTML () {
-            if (this.html !== this.$refs.content.innerHTML)
-                this.innerHTML = this.html;
-        }
-    },
-
-    mounted () {
-        this.unwatch = this.$watch("html", this.syncHTML, { immediate: true});
-
-        document.addEventListener("click", this.onDocumentClick);
-
-        this.$refs.content.addEventListener("focus", this.onFocus);
-        this.$refs.content.addEventListener("input", this.onInput);
-        this.$refs.content.addEventListener("blur", this.onContentBlur, { capture: true });
-
-        if (this.mergedOptions.forcePlainTextOnPaste === true) {
-            this.$refs.content.addEventListener("paste", this.onPaste);
-        }
-
-        this.$refs.content.style.maxHeight = this.mergedOptions.maxHeight;
-    },
-
-    beforeDestroy () {
-      this.unwatch();
-      document.removeEventListener("click", this.onDocumentClick);
-
-      this.$refs.content.removeEventListener("blur", this.onContentBlur);
-      this.$refs.content.removeEventListener("input", this.onInput);
-      this.$refs.content.removeEventListener("focus", this.onFocus);
+  data() {
+    return {
+      selection: "",
+      range: null
     }
+  },
+
+  computed: {
+    mergedOptions() {
+      return { ...bus.options,
+        ...this.options
+      }
+    },
+
+    modules() {
+      const customIcons = this.mergedOptions.iconOverrides;
+
+      return modules
+        .filter(
+          m => this.mergedOptions.hideModules === undefined ||
+          !this.mergedOptions.hideModules[m.title]
+        )
+        .map(mod => {
+          if (customIcons !== undefined && customIcons[mod.title] !== undefined) {
+            mod.icon = customIcons[mod.title];
+          }
+          return mod;
+        })
+        .concat(this.mergedOptions.customModules);
+    },
+
+    btnsWithDashboards() {
+      if (this.modules)
+        return this.modules.filter(m => m.render);
+      return [];
+    },
+
+    innerHTML: {
+      get() {
+        return this.$refs.content.innerHTML;
+      },
+
+      set(html) {
+        if (this.$refs.content.innerHTML !== html) {
+          this.$refs.content.innerHTML = html;
+        }
+      }
+    }
+  },
+
+  methods: {
+    saveSelection() {
+      if (window.getSelection !== undefined) {
+        this.selection = window.getSelection();
+        if (this.selection.getRangeAt && this.selection.rangeCount) {
+          this.range = this.selection.getRangeAt(0);
+          return this.range;
+        }
+      } else if (document.selection && document.selection.createRange) {
+        this.range = document.selection.createRange();
+        return this.range;
+      }
+      return null;
+    },
+
+    restoreSelection(range) {
+      if (range) {
+        if (window.getSelection !== undefined) {
+          this.selection = window.getSelection();
+          this.selection.removeAllRanges();
+          this.selection.addRange(range);
+        } else if (document.selection && range.select)
+          range.select();
+      } else {
+
+      }
+      this.selection = null;
+      this.range = null;
+    },
+    clearSelection() {
+      this.selection = null;
+      this.range = null;
+      const selection = window.getSelection();
+
+      if (selection) {
+        if (selection.empty !== undefined) {
+          selection.empty();
+        }
+        if (selection.removeAllRanges !== undefined) {
+          selection.removeAllRanges();
+        }
+      }
+    },
+    exec(cmd, arg, sel) {
+      sel !== false && this.selection && this.restoreSelection(this.range);
+      document.execCommand(cmd, false, arg || "");
+      //this.clearSelection();
+
+      this.$nextTick(this.emit);
+    },
+
+    onDocumentClick(e) {
+      for (let i = 0; i < this.btnsWithDashboards.length; i++) {
+        const btn = this.$refs[`btn-${this.btnsWithDashboards[i].title}`][0];
+        if (btn && btn.showDashboard && !btn.$el.contains(e.target))
+          btn.closeDashboard();
+      }
+    },
+
+    editorClick($event) {
+      if ($event.target.localName == 'input') {
+        return;
+      }
+      if (this.range) {
+        this.restoreSelection(this.range)
+      }
+    },
+
+    emit() {
+      this.$emit("html", this.$refs.content.innerHTML);
+      this.$emit("change", this.$refs.content.innerHTML);
+    },
+
+    onInput: debounce(function() {
+      this.emit();
+    }, 300),
+
+    onFocus() {
+      document.execCommand("defaultParagraphSeparator", false, this.mergedOptions.paragraphSeparator)
+    },
+
+    onContentBlur() {
+      // save focus to restore it later
+      this.selection = this.saveSelection();
+      this.$emit("blur", this.$refs.content);
+    },
+
+    onPaste(e) {
+      e.preventDefault();
+
+      // get a plain representation of the clipboard
+      var text = e.clipboardData.getData("text/plain");
+
+      // insert that plain text text manually
+      document.execCommand("insertHTML", false, text);
+    },
+
+    syncHTML() {
+      if (this.html !== this.$refs.content.innerHTML)
+        this.innerHTML = this.html;
+    }
+  },
+
+  mounted() {
+    this.unwatch = this.$watch("html", this.syncHTML, {
+      immediate: true
+    });
+
+    document.addEventListener("click", this.onDocumentClick);
+
+    this.$refs.content.addEventListener("focus", this.onFocus);
+    this.$refs.content.addEventListener("input", this.onInput);
+    this.$refs.content.addEventListener("blur", this.onContentBlur, {
+      capture: true
+    });
+
+    if (this.mergedOptions.forcePlainTextOnPaste === true) {
+      this.$refs.content.addEventListener("paste", this.onPaste);
+    }
+
+    this.$refs.content.style.maxHeight = this.mergedOptions.maxHeight;
+  },
+
+  beforeDestroy() {
+    this.unwatch();
+    document.removeEventListener("click", this.onDocumentClick);
+
+    this.$refs.content.removeEventListener("blur", this.onContentBlur);
+    this.$refs.content.removeEventListener("input", this.onInput);
+    this.$refs.content.removeEventListener("focus", this.onFocus);
+  }
 }
 </script>
 

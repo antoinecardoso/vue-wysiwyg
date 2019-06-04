@@ -1,8 +1,15 @@
+Dans le dossier local pour voir ce qu'on fait lancer :
 dev env: `npm run dev`
 
+Une fois les modifications pushées dans le projet "back" faire en local :
 app/assets/javascript/backoffice/backoffice -> npm uninstall vue-wysiwyg
-
 app/assets/javascript/backoffice/backoffice -> npm install --save antoinecardoso/vue-wysiwyg
+
+Faire sur la vm :
+dock down
+dock up web
+(si ca marche pas supprimer tmp/cache)
+
 
 [![](https://user-images.githubusercontent.com/11352152/30252159-1bbb9cfe-963b-11e7-966c-b44116c74a86.png)](https://chmln.github.io/vue-wysiwyg/)
 
