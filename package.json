@@ -14,7 +14,8 @@
   "main": "dist/vueWysiwyg.js",
   "style": "dist/vueWysiwyg.css",
   "scripts": {
-    "dev": "node build/dev-server.js",    
+    "dev": "node build/dev-server.js",
+    "prepare": "npm run build:prod",
     "build": "npm run build:prod",
     "build:demo": "BABEL_ENV=production BUILD=demo DIR=demo node build/build.js",
     "build:prod": "rm -rf dist/* && BABEL_ENV=production BUILD=prod node build/build.js"
